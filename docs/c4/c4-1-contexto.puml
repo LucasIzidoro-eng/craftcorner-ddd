@@ -1,0 +1,16 @@
+@startuml c4-1-contexto
+!include <C4/C4_Context>
+title Diagrama de Contexto (C4 nível 1) - CraftCorner com camada de mensageria
+LAYOUT_WITH_LEGEND()
+
+Person(membro, "Membro", "Aprendiz ou criador. Assiste tutoriais, curte, comenta, segue pessoas e publica criações.")
+Person(admin, "Administrador", "Gerencia tutoriais e categorias, acompanha estatísticas e modera conteúdos e usuários.")
+
+System(craft, "CraftCorner", "Plataforma web de tutoriais de artesanato. Publica eventos de domínio e reage a eles de forma assíncrona.")
+System_Ext(smtp, "Serviço de e-mail (SMTP)", "Envia e-mails de notificação aos membros.")
+
+Rel(membro, craft, "Usa", "HTTPS")
+Rel(admin, craft, "Administra e modera", "HTTPS")
+Rel(craft, smtp, "Envia e-mails", "SMTP")
+Rel(craft, membro, "Notifica (curtidas, comentários, novos seguidores)", "Notificação na plataforma e e-mail")
+@enduml

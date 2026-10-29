@@ -1,0 +1,32 @@
+@startuml c4-2-conteineres
+!include <C4/C4_Container>
+title Diagrama de Contêineres (C4 nível 2) - CraftCorner com camada de mensageria
+LAYOUT_WITH_LEGEND()
+
+Person(membro, "Membro", "Aprendiz ou criador")
+Person(admin, "Administrador", "Modera e administra")
+System_Ext(smtp, "Serviço de e-mail (SMTP)", "Envio de e-mails")
+
+System_Boundary(craft, "CraftCorner") {
+  Container(spa, "SPA", "Vue 3 + Vite", "Telas de feed, tutorial, perfil, notificações e administração.")
+  Container(api, "API CraftCorner", "Node.js + Express (monólito modular DDD)", "Contextos delimitados: identity-access, community, tutorial-catalog, engagement, learning-creations, feed-discovery, administration-moderation. Publica e consome eventos de domínio.")
+  ContainerDb(db, "Banco de dados", "MySQL", "Dados dos contextos, tabela outbox e tabela de eventos processados.")
+  Container(files, "Armazenamento de arquivos", "Disco /uploads", "Capas, vídeos e fotos de perfil.")
+  ContainerQueue(broker, "Message Broker", "RabbitMQ", "Exchange 'craftcorner.events' (topic), filas por consumidor e filas de erro (DLQ).")
+  Container(notif, "Worker de Notificações", "Node.js + amqplib", "Consome eventos de curtida, comentário e seguidor. Grava notificações e dispara e-mails.")
+  Container(media, "Worker de Mídia", "Node.js + amqplib + ffmpeg", "Consome TutorialPublished: gera miniatura, valida e normaliza o vídeo.")
+}
+
+Rel(membro, spa, "Usa", "HTTPS")
+Rel(admin, spa, "Usa", "HTTPS")
+Rel(spa, api, "Chama", "JSON/HTTPS")
+Rel(api, db, "Lê e grava", "Sequelize / SQL")
+Rel(api, files, "Grava e lê arquivos", "fs")
+Rel(api, broker, "Publica eventos (via outbox) e consome eventos de projeção", "AMQP")
+Rel(broker, notif, "Entrega eventos", "AMQP")
+Rel(broker, media, "Entrega eventos", "AMQP")
+Rel(notif, db, "Grava notificações", "SQL")
+Rel(notif, smtp, "Envia e-mails", "SMTP")
+Rel(media, files, "Lê vídeo e grava miniatura", "fs")
+Rel(media, broker, "Publica MediaProcessed", "AMQP")
+@enduml

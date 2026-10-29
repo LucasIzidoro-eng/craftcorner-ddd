@@ -1,0 +1,34 @@
+@startuml c4-3-componentes
+!include <C4/C4_Component>
+title Diagrama de Componentes (C4 nível 3) - Camada de mensageria dentro da API CraftCorner
+LAYOUT_WITH_LEGEND()
+
+ContainerQueue(broker, "Message Broker", "RabbitMQ", "Exchange topic 'craftcorner.events'")
+ContainerDb(db, "Banco de dados", "MySQL", "Tabelas de negócio, outbox e processed_events")
+
+Container_Boundary(api, "API CraftCorner") {
+  Component(uc, "Casos de uso", "Camada de aplicação", "Ex.: PublishTutorial, DeleteTutorial, ToggleLike, AddComment. Alteram um agregado e registram o evento.")
+  Component(port, "EventPublisher", "Porta (shared-kernel)", "Interface publish(event). É a única coisa que os casos de uso conhecem.")
+  Component(outbox, "OutboxEventPublisher", "Adaptador", "Grava o evento na tabela outbox, na mesma transação do agregado.")
+  Component(relay, "OutboxRelay", "Processo em segundo plano", "Lê eventos pendentes da outbox, publica no broker e marca como enviados.")
+  Component(envelope, "EventEnvelope / Serializer", "Módulo", "Monta o envelope JSON: eventId, type, version, occurredAt, aggregateId, payload.")
+  Component(amqp, "RabbitMqConnection", "Adaptador (amqplib)", "Conexão, canal com confirmação (publisher confirms), declaração de exchange, filas, retry e DLQ.")
+  Component(sub, "EventSubscriber", "Adaptador", "Consome as filas, controla ack/nack, prefetch e reentrega.")
+  Component(idem, "IdempotencyGuard", "Módulo", "Consulta e grava processed_events para ignorar mensagens repetidas.")
+  Component(h1, "FeedProjectionHandlers", "Handlers (feed-discovery)", "Atualizam feeds e busca a partir de TutorialPublished, TutorialDeleted, UserFollowed etc.")
+  Component(h2, "EngagementHandlers", "Handlers (engagement)", "Limpam curtidas e comentários em TutorialDeleted e atualizam TutorialStats.")
+}
+
+Rel(uc, port, "Publica evento", "publish(event)")
+Rel(port, outbox, "Implementado por")
+Rel(outbox, envelope, "Usa")
+Rel(outbox, db, "INSERT na outbox (mesma transação)", "SQL")
+Rel(relay, db, "Lê pendentes e marca enviados", "SQL")
+Rel(relay, amqp, "Publica mensagem")
+Rel(amqp, broker, "Publica e confirma", "AMQP")
+Rel(broker, sub, "Entrega mensagens", "AMQP")
+Rel(sub, idem, "Verifica duplicidade")
+Rel(idem, db, "Lê/grava processed_events", "SQL")
+Rel(sub, h1, "Despacha evento")
+Rel(sub, h2, "Despacha evento")
+@enduml
